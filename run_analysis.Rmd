@@ -1,0 +1,137 @@
+---
+title: "Getting and Cleaning data_project"
+
+output: html_document
+---
+
+####BY Azadeh
+### One of the most exciting areas in all of data science right now is wearable computing - see for example this article . Companies like Fitbit, Nike, and Jawbone Up are racing to develop the most advanced algorithmsto attract new users. The data linked to from the course website represent data collected from the accelerometers from the Samsung Galaxy S smartphone.  
+
+
+
+
+```{r,echo=TRUE, results='asis', warning=TRUE, message=TRUE}
+
+library(plyr)
+library(dplyr)
+library(data.table)
+library(tidyr)
+
+##Download the file 
+
+    if(!file.exists("./data")){dir.create("./data")}
+        fileurl<-("https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip")
+        download.file(url=fileurl,destfile="C:/Users/afarn_000.AZADEHSURFACE/Documents/R/data/Dataset.zip",mode="w")
+
+## Unzip the file 
+   file <- unzip(zipfile="C:/Users/afarn_000.AZADEHSURFACE/Downloads/Compressed/getdata_projectfiles_UCI HAR Dataset.zip",exdir = "./data")
+
+path<-file.path("./data","UCI HAR Dataset")
+
+lists<-list.files(path,recursive = TRUE)
+lists
+```
+
+###Read data file and creat a data
+
+```{r,echo=TRUE, results='asis', warning=TRUE, message=TRUE}
+#Read Activity file from train and test folder
+Activitytrain<- tbl_df(read.table(file.path(path,"train","Y_train.txt"), header = FALSE))
+Activitytest<- tbl_df(read.table(file.path(path,"test","Y_test.txt"), header = FALSE))
+
+#Read features file from train and test folder
+Featuretrain<- tbl_df(read.table(file.path(path,"train","X_train.txt"), header = FALSE))
+Featuretest<- tbl_df(read.table(file.path(path,"test","X_test.txt"), header = FALSE))
+
+
+#Read Subject file from train and test folder
+Subjecttrain<- tbl_df(read.table(file.path(path,"train","subject_train.txt"), header = FALSE))
+Subjecttest<- tbl_df(read.table(file.path(path,"test","subject_test.txt"), header = FALSE))
+
+```
+
+### Merges the training and the test sets to create one data set
+
+```{r,echo=TRUE, results='asis', warning=TRUE, message=TRUE}
+
+#combine by row
+Activitydata<-rbind(Activitytrain,Activitytest)
+Subjectdata<-rbind(Subjecttrain,Subjecttest)
+Featuredata<-rbind(Featuretrain,Featuretest)
+
+
+#Setnames for Feature ,Subject and Activity table
+Featurenames <- tbl_df(read.table(file.path(path, "features.txt"),header = FALSE))
+
+names(Featuredata)<-Featurenames$V2
+names(Activitydata)<-c("Activity")
+names(Subjectdata)<-c("Subject")
+
+
+#combine by column
+temp<-cbind(Subjectdata,Activitydata)
+Database<-cbind(temp,Featuredata)
+
+str(Database)   
+```
+
+### Extracts only the measurements on the mean and standard deviation for each measurement
+
+```{r,echo=TRUE, results='asis', warning=TRUE, message=TRUE}
+
+# Subset measurements for the mean and standard deviation.
+ 
+FeaturesNamessubset<-Featurenames$V2[grep("mean\\(\\)|std\\(\\)", Featurenames$V2)]
+
+#Subset the data frame by selected names of Features
+
+selected_names<-c(as.character(FeaturesNamessubset), "Subject", "Activity" )
+Database<-subset(Database,select=selected_names)
+
+names(Database)
+
+```
+
+###Uses descriptive activity names to name the activities in the data set
+
+```{r,echo=TRUE, results='asis', warning=TRUE, message=TRUE}
+#Descriptive activity for Activity_label
+Activity_labels <- tbl_df(read.table(file.path(path, "activity_labels.txt"),header = FALSE))
+
+Database$Activity<- factor(Database$Activity,labels=as.character(Activity_labels$V2))
+
+names(Database)
+```
+
+###Appropriately labels the data set with descriptive variable names
+
+```{r,echo=TRUE, results='asis', warning=TRUE, message=TRUE}
+
+# prefix t is replaced by time
+# prefix f is replaced by frequency
+# Acc is replaced by Accelerometer measurement
+# Gyro is replaced by Gyroscope measurement
+# Mag is replaced by Magnitude of movement
+# Bodyis replaced by Body movement
+
+names(Database)<-gsub("^t", "time", names(Database))
+names(Database)<-gsub("^f", "frequency", names(Database))
+names(Database)<-gsub("Acc", "Accelerometer", names(Database))
+names(Database)<-gsub("Gyro", "Gyroscope", names(Database))
+names(Database)<-gsub("Mag", "Magnitude", names(Database))
+names(Database)<-gsub("BodyBody", "Body", names(Database))
+
+names(Database)
+```
+
+###From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+
+```{r,echo=TRUE, results='asis', warning=TRUE, message=TRUE}
+
+
+New_Database<-aggregate(. ~Subject + Activity, data=Database, mean)
+
+New_Database<-New_Database[order(New_Database$Subject,New_Database$Activity),]
+write.table(New_Database, file = "tidydata.txt",row.name=FALSE)
+
+```
